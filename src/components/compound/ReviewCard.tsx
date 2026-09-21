@@ -200,7 +200,13 @@ export function ReviewCard({
                 aria-haspopup="menu"
                 aria-expanded={triggerProps['aria-expanded']}
                 aria-label={`Review actions for ${author?.displayName ?? 'this review'}`}
-                className="-mr-1 -mt-1 inline-flex h-9 w-9 items-center justify-center rounded-full text-text-muted transition-colors hover:bg-surface-hover hover:text-text-primary"
+                /*
+                 * The hit area is a full 44x44px (WCAG 2.5.5) even though the
+                 * glyph stays 16px: the negative margins pull the larger box
+                 * back onto the header's optical alignment, so the layout reads
+                 * exactly as before while the target is no longer undersized.
+                 */
+                className="-mr-2.5 -mt-2.5 inline-flex h-11 w-11 items-center justify-center rounded-full text-text-muted transition-colors hover:bg-surface-hover hover:text-text-primary"
               >
                 <MoreHorizontal size={16} aria-hidden="true" />
               </button>

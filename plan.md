@@ -929,7 +929,7 @@ To mirror Letterboxd's ergonomic utility across portable and desk devices, inter
 - [ ] Write seed dataset generator (`lib/db/seed.ts`) containing:
   - 12 canonical film records with full metadata (Parasite, Blade Runner 2049, Spirited Away, The Godfather, Mulholland Drive, Portrait of a Lady on Fire, etc.).
   - Realistic rating distributions for the 10-bar histogram.
-  - Initial user profile and friend activity feed.
+  - Initial user profile and friend activity feed. The signed-in viewer is `user_001` (`@deakins_ghost`, Alex Rivers); every "my" surface reads that profile id, and `/profile/deakins_ghost` is the route used by the render harness.
 - [ ] Implement rating calculation and formatting math (`lib/utils/rating-math.ts`):
   - `calculateStarFromPointer(clientX, containerRect)`
   - `formatRatingDisplay(rating: number): string`
@@ -1019,7 +1019,7 @@ To mirror Letterboxd's ergonomic utility across portable and desk devices, inter
 - [ ] Assemble Profile Page (`app/profile/[username]/page.tsx`):
   - Profile header with avatar, bio, and Letterboxd Favorite Four showcase.
   - Tab navigation: Profile Overview, Diary, Reviews, Lists, Watchlist.
-  - Rating histogram of the user's specific lifetime ratings.
+  - Rating histogram of the user's specific lifetime ratings, sourced from the diary table (every logged rating, not only the ones carrying a review).
 - [ ] Rigorous End-to-End Viewport & Accessibility Validation:
   - Verify all touch targets $\ge 44 \times 44\text{px}$ across 360px, 390px, and 430px widths.
   - Confirm keyboard navigation (`Tab`, `Enter`, `Space`, `Arrow` keys) for rating inputs and modal dialogs.

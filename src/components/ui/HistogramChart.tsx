@@ -119,11 +119,19 @@ export function HistogramChart({
     <div className={`flex w-full max-w-[320px] flex-col gap-1.5 max-sm:max-w-full ${className}`}>
       <div className="relative max-sm:-mx-1 max-sm:overflow-x-auto max-sm:overscroll-x-contain max-sm:px-1 max-sm:pb-1">
         <div className="max-sm:min-w-[486px]">
+        {/*
+         * The floating tooltip is `sm`-and-up only. Below `sm` the chart lives in
+         * a horizontal scroller, and a scroll container computes `overflow-y` to
+         * `auto` for any `overflow-x` other than `visible` — so an absolutely
+         * positioned bubble above the bars gets clipped no matter how the
+         * offsets are tuned. The same figures render in the reserved read-out
+         * line underneath instead.
+         */}
         {activeBar ? (
           <div
             role="status"
             aria-live="polite"
-            className="pointer-events-none absolute -top-9 left-1/2 z-20 flex -translate-x-1/2 flex-col items-center animate-zoom-in-95"
+            className="pointer-events-none absolute -top-9 left-1/2 z-20 hidden -translate-x-1/2 flex-col items-center animate-zoom-in-95 sm:flex"
             style={{ animationDuration: '120ms' }}
           >
             <span className="whitespace-nowrap rounded border border-border-strong bg-surface-elevated px-2 py-1 font-mono text-[10px] text-text-primary shadow-popover">
@@ -182,6 +190,27 @@ export function HistogramChart({
           </div>
         </div>
       </div>
+
+      {/*
+       * Mobile read-out. The line is always rendered so selecting a bar never
+       * shifts the layout, and it is marked `aria-hidden` because every bar
+       * already carries its count and share in its own accessible name — a live
+       * region here would announce each figure twice.
+       */}
+      <p
+        aria-hidden="true"
+        className={`flex min-h-6 items-center justify-center rounded border px-2 font-mono text-[10px] sm:hidden ${
+          activeBar
+            ? 'border-border-strong bg-surface-elevated text-text-primary'
+            : 'border-transparent text-text-dim'
+        }`}
+      >
+        {activeBar
+          ? `★ ${formatRatingDisplay(activeBar.rating)}: ${formatCount(activeBar.count)} rating${
+              activeBar.count === 1 ? '' : 's'
+            } (${activeBar.sharePercentage}%)`
+          : 'Tap a bar for its exact count'}
+      </p>
 
       {compact ? null : (
         <div className="tabular flex items-center justify-between px-1 font-mono text-[10px] text-text-muted select-none">
