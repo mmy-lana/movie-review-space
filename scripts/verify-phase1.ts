@@ -136,6 +136,10 @@ check('sanitizeUrl blocks dangerous protocols', () => {
   assert.equal(sanitizeUrl('java\u0000script:alert(1)'), '#');
   assert.equal(sanitizeUrl('data:text/html;base64,PHNjcmlwdD4='), '#');
   assert.equal(sanitizeUrl('//evil.example.com'), '#');
+  assert.equal(sanitizeUrl('/\\evil.example.com'), '#');
+  assert.equal(sanitizeUrl('\\\\evil.example.com'), '#');
+  assert.equal(sanitizeUrl('\\evil.example.com'), '#');
+  assert.equal(sanitizeUrl('HtTpS://evil.example.com'), 'HtTpS://evil.example.com');
   assert.equal(sanitizeUrl('   '), '#');
 });
 
@@ -210,6 +214,24 @@ check('internal links stay in the same tab', () => {
   const anchors = collectTags(rendered).filter((node) => node.type === 'a');
   assert.equal(anchors[0]!.href, '/films/parasite-2019');
   assert.equal(anchors[0]!.target, undefined);
+});
+
+check('query strings survive escaping in links and autolinks', () => {
+  const expected = 'https://cineslate.app/films?a=1&b=2';
+
+  const linked = renderMarkdown('[Filter](https://cineslate.app/films?a=1&b=2)');
+  assert.deepEqual(collectHrefs(linked), [expected]);
+
+  const autolinked = renderMarkdown('Filtered at https://cineslate.app/films?a=1&b=2 today.');
+  assert.deepEqual(collectHrefs(autolinked), [expected]);
+  assert.ok(flatten(autolinked).includes(expected), flatten(autolinked));
+});
+
+check('backslash redirects collapse to #', () => {
+  for (const target of ['/\\evil.example.com', '\\\\evil.example.com', '\\evil.example.com']) {
+    const rendered = renderMarkdown(`[click](${target})`);
+    assert.deepEqual(collectHrefs(rendered), ['#'], target);
+  }
 });
 
 check('headings, lists and emphasis compile', () => {

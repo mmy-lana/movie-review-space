@@ -17,7 +17,7 @@ import type { ActivityEvent, DiaryEntry, Film, Review, StarRating, UserProfile }
 import { getDb, isDatabaseAvailable } from '@/lib/db/indexdb';
 import { applyCommunityRatingDeltaInTransaction } from '@/lib/db/metrics';
 import { getDiaryByUser } from '@/lib/db/queries';
-import { normalizeRating } from '@/lib/utils/rating-math';
+import { normalizeRating, toRatedOrNull } from '@/lib/utils/rating-math';
 import { toPlainTextPreview } from '@/lib/utils/markdown-sanitizer';
 
 function createId(prefix: string): string {
@@ -190,11 +190,17 @@ export function useDiaryStore({
           updatedAt: now,
         };
 
-        const previousRating = existing?.rating ?? null;
+        // A like-only row carries the `0` unrated sentinel and contributes
+        // nothing to the community distribution, so it is never removed from it.
+        const previousRating = existing ? toRatedOrNull(existing.rating) : null;
 
+        // `db.profiles` is part of the lock set because the activity event below
+        // reads the author profile inside this transaction when no hydrated
+        // viewer was passed in; Dexie rejects an out-of-scope table read with
+        // `Table profiles not included in the transaction scope`.
         await db.transaction(
           'rw',
-          [db.diary, db.reviews, db.films, db.activity],
+          [db.diary, db.reviews, db.films, db.activity, db.profiles],
           async () => {
             let reviewForActivity: Review | null = null;
             if (draft.writeReview) {
@@ -314,11 +320,16 @@ export function useDiaryStore({
             await db.reviews.update(entry.reviewId, { isDeleted: true, updatedAt: now });
           }
 
-          await applyCommunityRatingDeltaInTransaction(db, {
-            filmId: entry.filmId,
-            remove: entry.rating,
-            add: null,
-          });
+          // An unrated like-only row never entered the distribution, so there is
+          // nothing to remove for it.
+          const entryRating = toRatedOrNull(entry.rating);
+          if (entryRating !== null) {
+            await applyCommunityRatingDeltaInTransaction(db, {
+              filmId: entry.filmId,
+              remove: entryRating,
+              add: null,
+            });
+          }
 
           const film = await db.films.get(entry.filmId);
           if (film && film.metrics.logCount > 0) {

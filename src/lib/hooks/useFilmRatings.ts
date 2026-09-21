@@ -17,7 +17,7 @@ import type { DiaryEntry, Film, StarRating } from '@/types/cine';
 import { getDb } from '@/lib/db/indexdb';
 import { getDiaryByUser } from '@/lib/db/queries';
 import { applyCommunityRatingDelta } from '@/lib/db/metrics';
-import { normalizeRating } from '@/lib/utils/rating-math';
+import { normalizeRating, toRatedOrNull } from '@/lib/utils/rating-math';
 
 /** Generates a collision-resistant id, with a fallback for older engines. */
 function createId(prefix: string): string {
@@ -90,7 +90,10 @@ export function useFilmRatings({
       for (const entry of entries) {
         if (!nextLatest.has(entry.filmId)) {
           nextLatest.set(entry.filmId, entry);
-          nextRatings.set(entry.filmId, entry.rating);
+          // A like-only row carries the `0` unrated sentinel: it must never
+          // surface as a rating.
+          const rated = toRatedOrNull(entry.rating);
+          if (rated !== null) nextRatings.set(entry.filmId, rated);
           nextLiked.set(entry.filmId, entry.isLiked);
         }
       }
@@ -136,6 +139,10 @@ export function useFilmRatings({
   /**
    * Writes the rating to the viewer's most recent diary entry for the film,
    * creating one when the film has never been logged.
+   *
+   * Clearing (`0`) soft-deletes that entry, reverses its contribution to the
+   * community distribution and drops the film from every local map, so a later
+   * refresh cannot resurrect the rating or underflow a histogram bucket.
    */
   const setRating = useCallback(
     async (film: Film, rating: StarRating | 0): Promise<boolean> => {
@@ -144,16 +151,33 @@ export function useFilmRatings({
       const previousLiked = liked.get(film.id) ?? false;
       const previousEntry = latestEntry.get(film.id) ?? null;
 
-      // Optimistic projection.
-      if (normalized === 0) {
+      // The stored distribution follows the diary row's rating, which is the
+      // authoritative baseline. An unrated row contributes nothing.
+      const storedRating = previousEntry ? toRatedOrNull(previousEntry.rating) : null;
+      const previousStoredRating: StarRating | null = storedRating ?? previous;
+
+      // Optimistic projection. Clearing removes the film from every map rather
+      // than leaving a stale entry behind.
+      const dropFromMaps = () => {
         setRatings((current) => {
           const next = new Map(current);
           next.delete(film.id);
           return next;
         });
-      } else {
-        setRatings((current) => new Map(current).set(film.id, normalized));
-      }
+        setLiked((current) => {
+          const next = new Map(current);
+          next.delete(film.id);
+          return next;
+        });
+        setLatestEntry((current) => {
+          const next = new Map(current);
+          next.delete(film.id);
+          return next;
+        });
+      };
+
+      if (normalized === 0) dropFromMaps();
+      else setRatings((current) => new Map(current).set(film.id, normalized));
       setError(null);
 
       try {
@@ -161,12 +185,29 @@ export function useFilmRatings({
         const now = new Date().toISOString();
         const today = now.slice(0, 10);
 
+        if (normalized === 0) {
+          // Clearing is a soft delete: history stays auditable, but the row no
+          // longer feeds the viewer's maps or the community distribution.
+          if (previousEntry) {
+            await db.diary.update(previousEntry.id, { isDeleted: true, updatedAt: now });
+          }
+          if (previousStoredRating !== null) {
+            await applyCommunityRatingDelta({
+              filmId: film.id,
+              remove: previousStoredRating,
+              add: null,
+            });
+          }
+          return true;
+        }
+
         if (previousEntry) {
           await db.diary.update(previousEntry.id, {
-            rating: normalized === 0 ? previousEntry.rating : normalized,
+            rating: normalized,
+            isDeleted: false,
             updatedAt: now,
           });
-        } else if (normalized !== 0) {
+        } else {
           const created: DiaryEntry = {
             id: createId('diary'),
             userId,
@@ -184,13 +225,11 @@ export function useFilmRatings({
         }
 
         // Keep the stored community histogram consistent with the change.
-        if (normalized !== 0 || previous !== null) {
-          await applyCommunityRatingDelta({
-            filmId: film.id,
-            remove: previous,
-            add: normalized === 0 ? null : normalized,
-          });
-        }
+        await applyCommunityRatingDelta({
+          filmId: film.id,
+          remove: previousStoredRating,
+          add: normalized,
+        });
 
         return true;
       } catch (cause: unknown) {
@@ -202,14 +241,18 @@ export function useFilmRatings({
             else next.set(film.id, previous);
             return next;
           });
-          setLiked((current) => new Map(current).set(film.id, previousLiked));
-          if (previousEntry === null) {
-            setLatestEntry((current) => {
-              const next = new Map(current);
-              next.delete(film.id);
-              return next;
-            });
-          }
+          setLiked((current) => {
+            const next = new Map(current);
+            if (previousLiked) next.set(film.id, true);
+            else next.delete(film.id);
+            return next;
+          });
+          setLatestEntry((current) => {
+            const next = new Map(current);
+            if (previousEntry === null) next.delete(film.id);
+            else next.set(film.id, previousEntry);
+            return next;
+          });
           setError(
             cause instanceof Error
               ? `Rating could not be saved: ${cause.message}`
@@ -226,40 +269,49 @@ export function useFilmRatings({
     async (film: Film, nextLiked?: boolean): Promise<boolean> => {
       const previousLiked = liked.get(film.id) ?? false;
       const target = nextLiked ?? !previousLiked;
+      const existing = latestEntry.get(film.id) ?? null;
 
       setLiked((current) => new Map(current).set(film.id, target));
       setError(null);
 
       try {
-        const existing = latestEntry.get(film.id) ?? null;
         const now = new Date().toISOString();
 
         if (existing) {
           await getDb().diary.update(existing.id, { isLiked: target, updatedAt: now });
-        } else {
-          const rating = ratings.get(film.id) ?? 2.5;
-          const created: DiaryEntry = {
-            id: createId('diary'),
-            userId,
-            filmId: film.id,
-            watchedDate: now.slice(0, 10),
-            rating,
-            isLiked: target,
-            isRewatch: false,
-            isDeleted: false,
-            createdAt: now,
-            updatedAt: now,
-          };
-          await getDb().diary.put(created);
-          setLatestEntry((current) => new Map(current).set(film.id, created));
-          setRatings((current) => new Map(current).set(film.id, rating));
-          await applyCommunityRatingDelta({ filmId: film.id, remove: null, add: rating });
+          setLatestEntry((current) =>
+            new Map(current).set(film.id, { ...existing, isLiked: target, updatedAt: now }),
+          );
+          return true;
         }
+
+        // A like on a never-logged film must not invent a rating. The row is
+        // created unrated and therefore contributes nothing to the rating
+        // histogram, the community average or the viewer's rating map.
+        const created: DiaryEntry = {
+          id: createId('diary'),
+          userId,
+          filmId: film.id,
+          watchedDate: now.slice(0, 10),
+          rating: 0,
+          isLiked: target,
+          isRewatch: false,
+          isDeleted: false,
+          createdAt: now,
+          updatedAt: now,
+        };
+        await getDb().diary.put(created);
+        setLatestEntry((current) => new Map(current).set(film.id, created));
 
         return true;
       } catch (cause: unknown) {
         if (isMountedRef.current) {
-          setLiked((current) => new Map(current).set(film.id, previousLiked));
+          setLiked((current) => {
+            const next = new Map(current);
+            if (previousLiked) next.set(film.id, true);
+            else next.delete(film.id);
+            return next;
+          });
           setError(
             cause instanceof Error
               ? `Like could not be saved: ${cause.message}`
@@ -269,7 +321,7 @@ export function useFilmRatings({
         return false;
       }
     },
-    [latestEntry, liked, ratings, userId],
+    [latestEntry, liked, userId],
   );
 
   return useMemo(

@@ -7,7 +7,8 @@
  * - Pointer: `pointerdown` + `pointermove` + `pointerup` with pointer capture,
  *   so one continuous touch drag scrubs the whole track on mobile while a mouse
  *   click resolves on the first press. Positions come from raw `clientX` values,
- *   never from hover-only state.
+ *   never from hover-only state. A drag updates the preview only and commits a
+ *   single write when the pointer is released.
  * - Keyboard: the track is a single `slider` stop. `ArrowRight`/`ArrowUp`
  *   increments by 0.5, `ArrowLeft`/`ArrowDown` decrements by 0.5, `Home`/`End`
  *   jump to the bounds, and `0`/`Delete`/`Backspace` clear the rating.
@@ -173,15 +174,12 @@ export function StarRatingInput({
   const handlePointerMove = useCallback(
     (event: ReactPointerEvent<HTMLDivElement>) => {
       if (disabled) return;
-      if (isDragging) {
-        const next = resolveFromPointer(event.clientX);
-        setPreview(next);
-        commit(next);
-        return;
-      }
+      // Preview only. A drag must never commit: one `pointermove` per frame
+      // would otherwise open a write transaction per frame (30-60+ per gesture).
+      // The gesture commits exactly once, in `handlePointerUp`.
       schedulePreview(event.clientX);
     },
-    [commit, disabled, isDragging, resolveFromPointer, schedulePreview],
+    [disabled, schedulePreview],
   );
 
   const handlePointerUp = useCallback(
@@ -195,9 +193,11 @@ export function StarRatingInput({
       setIsDragging(false);
       const next = resolveFromPointer(event.clientX);
       setPreview(next);
-      commit(next);
+      // `pointerdown` already committed the press position, so releasing on the
+      // same step is not a second write.
+      if (next !== committed) commit(next);
     },
-    [cancelScheduledPreview, commit, disabled, isDragging, resolveFromPointer],
+    [cancelScheduledPreview, commit, committed, disabled, isDragging, resolveFromPointer],
   );
 
   const handlePointerLeave = useCallback(() => {

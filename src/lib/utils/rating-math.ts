@@ -33,6 +33,17 @@ export function normalizeRating(value: number): StarRating | 0 {
 }
 
 /**
+ * Narrows the `0` "unrated" sentinel away, answering `null` for an unrated row.
+ *
+ * A diary row that exists only to record a like holds `0`; callers that build
+ * rating maps or histograms must exclude it. Funnelling that decision through one
+ * guard keeps the sentinel from leaking into a histogram bucket or a cast.
+ */
+export function toRatedOrNull(rating: StarRating | 0): StarRating | null {
+  return rating === 0 ? null : rating;
+}
+
+/**
  * Nudges a rating by a number of half-star steps.
  *
  * The `min` argument is a *floor*, not a lower bound for clearing: any step that

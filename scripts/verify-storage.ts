@@ -53,13 +53,14 @@ import {
   getPopularFilms,
   getReviewsForFilm,
   getTopRatedFilms,
+  getUserRatingForFilm,
   getUserRatingHistogram,
   queryFilms,
   searchFilms,
   searchProfiles,
 } from '../src/lib/db/queries.ts';
 import { computeCommunityRating, histogramTotal } from '../src/lib/utils/rating-math.ts';
-import type { StarRating } from '../src/types/cine.ts';
+import { STAR_RATING_STEPS, type StarRating } from '../src/types/cine.ts';
 
 let failures = 0;
 let checks = 0;
@@ -305,14 +306,23 @@ const viewerReviews = await db.reviews
   .equals(SEED_PRIMARY_USER_ID)
   .filter((review) => !review.isDeleted)
   .toArray();
+// The profile histogram is sourced from the diary, so it totals every logged
+// rating — including logs written without a review — and ignores unrated rows.
+const viewerRatings = diary
+  .map((entry) => entry.rating)
+  .filter((rating): rating is StarRating => rating > 0);
 const histogram = await getUserRatingHistogram(SEED_PRIMARY_USER_ID);
 eq(
-  'the viewer histogram totals their written reviews',
+  'the viewer histogram totals their logged ratings',
   histogramTotal(histogram),
-  viewerReviews.length,
+  viewerRatings.length,
 );
 ok(
-  'the viewer histogram buckets every review rating exactly once',
+  'the viewer histogram buckets every logged rating exactly once',
+  viewerRatings.every((rating) => (histogram[rating] ?? 0) > 0),
+);
+ok(
+  'the viewer histogram covers every written review rating',
   viewerReviews.every((review) => (histogram[review.rating] ?? 0) > 0),
 );
 ok(
@@ -330,6 +340,52 @@ ok(
   'every diary rating is inside the 0.5–5 range',
   diary.every((entry) => entry.rating >= 0.5 && entry.rating <= 5),
 );
+
+group('unrated like-only rows');
+// A row created purely to record a like holds the `0` sentinel. It must never
+// reach a histogram bucket or resolve to a rating.
+const likeOnlyFilmId = 'film_like_only_probe';
+const likeOnlyNow = new Date().toISOString();
+await db.diary.put({
+  id: 'diary_like_only_probe',
+  userId: SEED_PRIMARY_USER_ID,
+  filmId: likeOnlyFilmId,
+  watchedDate: '2026-09-20',
+  rating: 0,
+  isLiked: true,
+  isRewatch: false,
+  isDeleted: false,
+  createdAt: likeOnlyNow,
+  updatedAt: likeOnlyNow,
+});
+const histogramWithLikeOnly = await getUserRatingHistogram(SEED_PRIMARY_USER_ID);
+eq(
+  'an unrated like-only row adds no histogram bucket',
+  histogramTotal(histogramWithLikeOnly),
+  viewerRatings.length,
+);
+ok(
+  'an unrated like-only row leaves the distribution untouched',
+  STAR_RATING_STEPS.every(
+    (step) => histogramWithLikeOnly[step] === histogram[step],
+  ),
+);
+eq(
+  'an unrated like-only row never resolves to a rating',
+  await getUserRatingForFilm(SEED_PRIMARY_USER_ID, likeOnlyFilmId),
+  null,
+);
+eq(
+  'a logged watch resolves to its newest rating',
+  await getUserRatingForFilm(SEED_PRIMARY_USER_ID, 'film_parasite'),
+  5 as StarRating,
+);
+eq(
+  'a film with no diary row resolves to no rating',
+  await getUserRatingForFilm(SEED_PRIMARY_USER_ID, 'film_absent_probe'),
+  null,
+);
+await db.diary.delete('diary_like_only_probe');
 
 /* -------------------------------------------------------------------------- */
 /* 5. Reorder planner                                                         */

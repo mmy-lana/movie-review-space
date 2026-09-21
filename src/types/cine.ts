@@ -140,7 +140,12 @@ export interface DiaryEntry {
   reviewId?: string;
   /** ISO 8601 calendar date (`YYYY-MM-DD`). */
   watchedDate: string;
-  rating: StarRating;
+  /**
+   * The viewer's rating for this watch. `0` is the "unrated" sentinel used by a
+   * row created purely to record a like; such a row must never enter the rating
+   * histogram, the community distribution or the viewer's rating maps.
+   */
+  rating: StarRating | 0;
   isLiked: boolean;
   isRewatch: boolean;
   isDeleted?: boolean;

@@ -26,10 +26,10 @@ import type {
 import {
   computeCommunityRating,
   toDenseHistogram,
+  toRatedOrNull,
 } from '@/lib/utils/rating-math';
 import { toDecade } from '@/lib/utils/date-format';
 import { openDatabase } from './indexdb';
-import Dexie from 'dexie';
 
 /* -------------------------------------------------------------------------- */
 /* Films                                                                       */
@@ -630,9 +630,27 @@ export async function getDatabaseCounts(): Promise<{
   return { films, reviews, diary, lists, profiles, activity };
 }
 
-/** Ratings a user has given, as a dense histogram (profile rating matrix). */
+/**
+ * Ratings a user has given, as a dense histogram (profile rating matrix).
+ *
+ * The diary — not the review table — is the authoritative source: every logged
+ * watch carries the rating, whether or not a review was written. Rows created
+ * purely to record a like hold the `0` unrated sentinel and are skipped so they
+ * can never open an eleventh bucket or underflow an existing one.
+ */
 export async function getUserRatingHistogram(userId: string): Promise<RatingHistogram> {
-  return toDenseHistogram(await getReviewRatingHistogram({ userId }));
+  const db = await openDatabase();
+  const entries = await db.diary.where('userId').equals(userId).toArray();
+
+  const histogram: PartialRatingHistogram = {};
+  for (const entry of entries) {
+    if (entry.isDeleted) continue;
+    const rating = toRatedOrNull(entry.rating);
+    if (rating === null) continue;
+    histogram[rating] = (histogram[rating] ?? 0) + 1;
+  }
+
+  return toDenseHistogram(histogram);
 }
 
 /** The viewer's own rating for a film, if any (drives histogram highlighting). */
@@ -641,12 +659,19 @@ export async function getUserRatingForFilm(
   filmId: string,
 ): Promise<StarRating | null> {
   const db = await openDatabase();
-  const reviews = await db.reviews
-    .where('[filmId+createdAt]')
-    .between([filmId, Dexie.minKey], [filmId, Dexie.maxKey])
-    .filter((review) => review.userId === userId && !review.isDeleted)
+  const entries = await db.diary
+    .where('[userId+filmId]')
+    .equals([userId, filmId])
+    .filter((entry) => !entry.isDeleted && entry.rating > 0)
     .toArray();
 
-  if (reviews.length === 0) return null;
-  return reviews.sort((a, b) => b.createdAt.localeCompare(a.createdAt))[0]!.rating;
+  if (entries.length === 0) return null;
+
+  // Newest watch first, then newest write: the most recent rating wins.
+  const newest = entries.sort(
+    (a, b) =>
+      b.watchedDate.localeCompare(a.watchedDate) || b.createdAt.localeCompare(a.createdAt),
+  )[0]!;
+
+  return toRatedOrNull(newest.rating);
 }

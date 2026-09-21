@@ -11,7 +11,9 @@
  * 1. Raw HTML in the source is escaped before any tag is generated, so an
  *    injected `<script>` becomes inert text.
  * 2. Only `http:`, `https:` and `mailto:` URLs survive; everything else
- *    (notably `javascript:` and `data:`) collapses to `#`.
+ *    (notably `javascript:` and `data:`) collapses to `#`, as do the
+ *    protocol-relative and backslash prefixes (`//`, `/\`, `\\`) that browsers
+ *    normalise into a cross-origin navigation.
  * 3. Rendered output contains no `dangerouslySetInnerHTML` and no `href`
  *    outside the allow-list, so there is no injection surface left.
  */
@@ -42,15 +44,34 @@ function wrapTag(tag: string): string {
 }
 
 /**
+ * Reverses the ampersand escaping that `escapeHtml` applies before the link
+ * passes run.
+ *
+ * Without this, a link target captured from the escaped skeleton keeps its
+ * entities and `?a=1&b=2` reaches the DOM as `?a=1&amp;b=2`. Only `&amp;` is
+ * reversed: the other four entities cannot legally appear in a URL, and leaving
+ * them encoded keeps escaped markup inert.
+ */
+function decodeUrlEntities(value: string): string {
+  return value.replace(/&amp;/g, '&');
+}
+
+/**
  * Sanitises an href. Relative links (`/films/x`, `#anchor`, `./x`) are allowed
  * because they stay inside the application origin.
+ *
+ * Backslashes are rejected as leading characters: browsers normalise `\` to `/`
+ * during URL parsing (and again on navigation), so `\evil.example.com`,
+ * `/\evil.example.com` and `\\evil.example.com` all resolve to a foreign origin
+ * exactly like the protocol-relative `//evil.example.com` does.
  */
 export function sanitizeUrl(rawUrl: string): string {
   const trimmed = rawUrl.trim().replace(/[\u0000-\u001f\u007f]/g, '');
   if (trimmed.length === 0) return '#';
 
-  const lower = trimmed.toLowerCase();
-  if (lower.startsWith('//')) return '#';
+  // Protocol-relative (`//`), slash-backslash (`/\`) and backslash (`\`, `\\`)
+  // prefixes are all open-redirect vectors.
+  if (trimmed.startsWith('\\') || /^\/[\\/]/.test(trimmed)) return '#';
 
   const isRelative =
     trimmed.startsWith('/') || trimmed.startsWith('#') || trimmed.startsWith('./');
@@ -260,7 +281,10 @@ function renderInline(
   text = text.replace(
     /!?\[([^\]]*)\]\(([^)\s]+)(?:\s+&quot;([^&]*)&quot;)?\)/g,
     (_match, label: string, rawUrl: string, title: string | undefined) => {
-      const href = sanitizeUrl(rawUrl);
+      // The source was escaped before this pass, so the captured URL still
+      // carries `&amp;` for every `&`. Decoding it here is what keeps
+      // `?a=1&b=2` from being written to the DOM as `?a=1&amp;b=2`.
+      const href = sanitizeUrl(decodeUrlEntities(rawUrl));
       const key = `${keyPrefix}-link-${rtl.size}`;
       const isExternal = /^https?:\/\//i.test(href);
       rtl.set(
@@ -270,7 +294,7 @@ function renderInline(
           {
             key,
             href,
-            title: title && title.length > 0 ? title : undefined,
+            title: title && title.length > 0 ? decodeEntities(title) : undefined,
             target: isExternal ? '_blank' : undefined,
             rel: isExternal ? 'noopener noreferrer nofollow' : undefined,
             className:
@@ -289,7 +313,10 @@ function renderInline(
     /\bhttps?:\/\/[^\s<]+/g,
     (match) => {
       const trailing = /[.,;:!?)\]]+$/.exec(match)?.[0] ?? '';
-      const url = trailing.length > 0 ? match.slice(0, -trailing.length) : match;
+      const encoded = trailing.length > 0 ? match.slice(0, -trailing.length) : match;
+      // Decoding undoes the `escapeHtml` pass so the query string reaches the
+      // DOM as the author typed it, in both the href and the visible label.
+      const url = decodeUrlEntities(encoded);
       const href = sanitizeUrl(url);
       if (href === '#') return match;
       const key = `${keyPrefix}-auto-${rtl.size}`;
