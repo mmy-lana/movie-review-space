@@ -18,7 +18,8 @@ import type { Film, UserProfile } from '@/types/cine';
 import { Modal } from '@/components/ui/Modal';
 import { PosterImage } from '@/components/ui/PosterImage';
 import { formatCommunityRating } from '@/lib/utils/rating-math';
-import { getAllFilms } from '@/lib/db/queries';
+import { getPopularFilms, searchFilms } from '@/lib/db/queries';
+import { useDebouncedValue } from '@/lib/hooks/useDebouncedValue';
 
 /** Exactly four slots; `null` marks an unfilled slot. */
 export type FavoriteFourSlots = [string | null, string | null, string | null, string | null];
@@ -40,6 +41,12 @@ export interface FavoriteFourSelectorProps {
 }
 
 const SLOT_COUNT = 4;
+/** Default suggestions shown before the viewer types anything. */
+const DEFAULT_SUGGESTION_COUNT = 12;
+/** Upper bound on search hits rendered by the picker. */
+const SEARCH_RESULT_LIMIT = 24;
+/** Keystroke quiet period before a search is issued. */
+const SEARCH_DEBOUNCE_MS = 180;
 
 export function FavoriteFourSelector({
   value,
@@ -53,13 +60,14 @@ export function FavoriteFourSelector({
   const [isPickerOpen, setIsPickerOpen] = useState(false);
   const [activeSlot, setActiveSlot] = useState(0);
   const [query, setQuery] = useState('');
-  const [catalogue, setCatalogue] = useState<Film[]>(filmsForPicker ?? []);
-  const [isLoadingCatalogue, setIsLoadingCatalogue] = useState(filmsForPicker === undefined);
-  const [catalogueError, setCatalogueError] = useState<string | null>(null);
+  const [options, setOptions] = useState<Film[]>([]);
+  const [isLoadingOptions, setIsLoadingOptions] = useState(false);
+  const [optionsError, setOptionsError] = useState<string | null>(null);
 
   const searchInputRef = useRef<HTMLInputElement | null>(null);
   const reactId = useId();
   const captionId = `favorite-four-${reactId.replace(/[^a-zA-Z0-9-]/g, '')}`;
+  const debouncedQuery = useDebouncedValue(query, SEARCH_DEBOUNCE_MS);
 
   const resolvedFilms = useMemo(() => {
     if (films && films.length === SLOT_COUNT) return films;
@@ -67,53 +75,68 @@ export function FavoriteFourSelector({
     return value.map((id) => (id === null ? null : byId.get(id) ?? null));
   }, [films, filmsForPicker, value]);
 
-  // Lazily pull the catalogue the first time the picker is opened.
+  // The picker never pulls the whole catalogue into client memory: an empty
+  // query shows the most-logged films, and typing runs one indexed search per
+  // debounce window instead of scanning every title on every keystroke.
   useEffect(() => {
+    if (!isPickerOpen) return;
+
     if (filmsForPicker !== undefined) {
-      setCatalogue(filmsForPicker);
-      setIsLoadingCatalogue(false);
+      setOptions(filmsForPicker);
+      setOptionsError(null);
+      setIsLoadingOptions(false);
       return;
     }
-    if (!isPickerOpen || catalogue.length > 0) return;
 
+    const term = debouncedQuery.trim();
     let cancelled = false;
-    setIsLoadingCatalogue(true);
-    setCatalogueError(null);
+    setIsLoadingOptions(true);
+    setOptionsError(null);
 
-    getAllFilms()
+    const request =
+      term.length === 0
+        ? getPopularFilms(DEFAULT_SUGGESTION_COUNT)
+        : searchFilms(term, SEARCH_RESULT_LIMIT);
+
+    request
       .then((rows) => {
-        if (!cancelled) setCatalogue(rows);
+        if (!cancelled) setOptions(rows);
       })
       .catch((error: unknown) => {
         if (cancelled) return;
-        setCatalogueError(
+        setOptionsError(
           error instanceof Error
             ? `Film catalogue unavailable: ${error.message}`
             : 'Film catalogue unavailable.',
         );
+        setOptions([]);
       })
       .finally(() => {
-        if (!cancelled) setIsLoadingCatalogue(false);
+        if (!cancelled) setIsLoadingOptions(false);
       });
 
     return () => {
       cancelled = true;
     };
-  }, [catalogue.length, filmsForPicker, isPickerOpen]);
+  }, [debouncedQuery, filmsForPicker, isPickerOpen]);
 
   const results = useMemo(() => {
+    if (filmsForPicker === undefined) return options;
+
+    // In-memory path for callers that already hold a catalogue.
     const term = query.trim().toLowerCase();
-    const base = term.length === 0
-      ? catalogue
-      : catalogue.filter((film) =>
-          `${film.title} ${film.originalTitle ?? ''} ${film.releaseYear} ${film.directors
-            .map((director) => director.name)
-            .join(' ')}`
-            .toLowerCase()
-            .includes(term),
-        );
-    return base.slice(0, 40);
-  }, [catalogue, query]);
+    const base =
+      term.length === 0
+        ? filmsForPicker.slice(0, DEFAULT_SUGGESTION_COUNT)
+        : filmsForPicker.filter((film) =>
+            `${film.title} ${film.originalTitle ?? ''} ${film.releaseYear} ${film.directors
+              .map((director) => director.name)
+              .join(' ')}`
+              .toLowerCase()
+              .includes(term),
+          );
+    return base.slice(0, SEARCH_RESULT_LIMIT);
+  }, [filmsForPicker, options, query]);
 
   const openPicker = useCallback((slotIndex: number) => {
     if (readOnly) return;
@@ -121,6 +144,13 @@ export function FavoriteFourSelector({
     setQuery('');
     setIsPickerOpen(true);
   }, [readOnly]);
+
+  // Clearing the term on close keeps the next open from re-issuing the previous
+  // search before the debounce catches up.
+  const closePicker = useCallback(() => {
+    setIsPickerOpen(false);
+    setQuery('');
+  }, []);
 
   const handleSelect = useCallback(
     (film: Film) => {
@@ -131,9 +161,9 @@ export function FavoriteFourSelector({
       if (existingIndex !== -1) next[existingIndex] = next[activeSlot] ?? null;
       next[activeSlot] = film.id;
       onChange(next);
-      setIsPickerOpen(false);
+      closePicker();
     },
-    [activeSlot, onChange, value],
+    [activeSlot, closePicker, onChange, value],
   );
 
   const handleClear = useCallback(
@@ -211,7 +241,7 @@ export function FavoriteFourSelector({
 
       <Modal
         isOpen={isPickerOpen}
-        onClose={() => setIsPickerOpen(false)}
+        onClose={closePicker}
         title={`Choose favourite number ${activeSlot + 1}`}
         description="Search the local catalogue by title, year or director."
         size="md"
@@ -231,19 +261,19 @@ export function FavoriteFourSelector({
             />
           </label>
 
-          {isLoadingCatalogue ? (
+          {isLoadingOptions ? (
             <p className="py-6 text-center font-mono text-[11px] text-text-muted" role="status">
-              Loading catalogue…
+              Loading films…
             </p>
-          ) : catalogueError ? (
+          ) : optionsError ? (
             <p className="py-6 text-center text-[12px] text-brand-orange" role="alert">
-              {catalogueError}
+              {optionsError}
             </p>
           ) : results.length === 0 ? (
             <div className="flex flex-col items-center gap-1 py-8 text-center" role="status">
               <p className="text-[13px] font-semibold text-text-secondary">No films found</p>
               <p className="text-[11px] text-text-muted">
-                Try a different title, or clear the search to browse everything.
+                Try a different title, or clear the search to see popular films.
               </p>
               {query.length > 0 ? (
                 <button

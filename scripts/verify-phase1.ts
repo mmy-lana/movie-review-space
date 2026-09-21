@@ -33,6 +33,9 @@ const {
   formatWatchTime,
   toDecade,
 } = await import('../src/lib/utils/date-format.ts');
+const { applyLogRemovalToStats, applyLogToStats } = await import(
+  '../src/lib/utils/profile-stats.ts'
+);
 
 let checks = 0;
 function check(label: string, fn: () => void) {
@@ -43,7 +46,6 @@ function check(label: string, fn: () => void) {
 
 /* ------------------------------- rating math ------------------------------ */
 console.log('\nrating-math');
-
 check('normalizeRating clamps and quantises', () => {
   assert.equal(normalizeRating(0), 0);
   assert.equal(normalizeRating(-3), 0);
@@ -425,6 +427,174 @@ check('activity events are ordered and internally consistent', () => {
     SEED_ACTIVITY.some((event) => Date.parse(event.createdAt) > Date.parse('2026-09-01')),
     'stream includes recent events',
   );
+});
+
+/* ----------------------------- profile counters --------------------------- */
+console.log('\nprofile-stats');
+
+const BASE_STATS = {
+  filmsWatched: 1_248,
+  thisYearCount: 142,
+  listsCreated: 18,
+  reviewsWritten: 312,
+  followingCount: 384,
+  followersCount: 512,
+  totalWatchTimeMinutes: 162_240,
+};
+
+check('a new log counts a watch, its runtime and the current year', () => {
+  const next = applyLogToStats({
+    stats: BASE_STATS,
+    previous: null,
+    watchedDate: '2026-03-14',
+    runtimeMinutes: 132,
+    writesReview: false,
+    currentYear: 2026,
+  });
+  assert.equal(next.filmsWatched, 1_249);
+  assert.equal(next.thisYearCount, 143);
+  assert.equal(next.totalWatchTimeMinutes, 162_372);
+  assert.equal(next.reviewsWritten, 312, 'no review written, no review counted');
+  assert.equal(next.listsCreated, BASE_STATS.listsCreated, 'untouched counters survive');
+});
+
+check('a log from another year leaves thisYearCount alone', () => {
+  const next = applyLogToStats({
+    stats: BASE_STATS,
+    previous: null,
+    watchedDate: '2011-07-02',
+    runtimeMinutes: 96,
+    writesReview: true,
+    currentYear: 2026,
+  });
+  assert.equal(next.filmsWatched, 1_249);
+  assert.equal(next.thisYearCount, 142);
+  assert.equal(next.totalWatchTimeMinutes, 162_336);
+  assert.equal(next.reviewsWritten, 313, 'a first-time review counts once');
+});
+
+check('editing a log does not double count the watch', () => {
+  const previous = { watchedDate: '2026-03-14', reviewId: 'rev_1', isDeleted: false };
+  const next = applyLogToStats({
+    stats: BASE_STATS,
+    previous,
+    watchedDate: '2026-03-20',
+    runtimeMinutes: 132,
+    writesReview: true,
+    currentYear: 2026,
+  });
+  assert.equal(next.filmsWatched, 1_248);
+  assert.equal(next.thisYearCount, 142, 'same year on both sides of the edit');
+  assert.equal(next.totalWatchTimeMinutes, 162_240);
+  assert.equal(next.reviewsWritten, 312, 'the review already existed');
+});
+
+check('moving a log out of this year decrements the year counter', () => {
+  const previous = { watchedDate: '2026-03-14', reviewId: undefined, isDeleted: false };
+  const next = applyLogToStats({
+    stats: BASE_STATS,
+    previous,
+    watchedDate: '2019-03-14',
+    runtimeMinutes: 132,
+    writesReview: false,
+    currentYear: 2026,
+  });
+  assert.equal(next.thisYearCount, 141);
+  assert.equal(next.filmsWatched, 1_248);
+});
+
+check('moving a log into this year increments the year counter', () => {
+  const previous = { watchedDate: '2019-03-14', reviewId: undefined, isDeleted: false };
+  const next = applyLogToStats({
+    stats: BASE_STATS,
+    previous,
+    watchedDate: '2026-03-14',
+    runtimeMinutes: 132,
+    writesReview: false,
+    currentYear: 2026,
+  });
+  assert.equal(next.thisYearCount, 143);
+});
+
+check('re-logging a soft-deleted row counts as a new watch', () => {
+  const previous = { watchedDate: '2026-03-14', reviewId: undefined, isDeleted: true };
+  const next = applyLogToStats({
+    stats: BASE_STATS,
+    previous,
+    watchedDate: '2026-03-15',
+    runtimeMinutes: 100,
+    writesReview: false,
+    currentYear: 2026,
+  });
+  assert.equal(next.filmsWatched, 1_249);
+  assert.equal(next.thisYearCount, 143);
+  assert.equal(next.totalWatchTimeMinutes, 162_340);
+});
+
+check('removing a log reverses watch, year, runtime and review', () => {
+  const next = applyLogRemovalToStats({
+    stats: BASE_STATS,
+    entry: { watchedDate: '2026-03-14', reviewId: 'rev_1' },
+    runtimeMinutes: 132,
+    currentYear: 2026,
+  });
+  assert.equal(next.filmsWatched, 1_247);
+  assert.equal(next.thisYearCount, 141);
+  assert.equal(next.totalWatchTimeMinutes, 162_108);
+  assert.equal(next.reviewsWritten, 311);
+});
+
+check('removing a log from another year spares the year counter', () => {
+  const next = applyLogRemovalToStats({
+    stats: BASE_STATS,
+    entry: { watchedDate: '2011-07-02', reviewId: undefined },
+    runtimeMinutes: 96,
+    currentYear: 2026,
+  });
+  assert.equal(next.thisYearCount, 142);
+  assert.equal(next.reviewsWritten, 312);
+});
+
+check('counters floor at zero instead of going negative', () => {
+  const floor = {
+    filmsWatched: 1,
+    thisYearCount: 0,
+    listsCreated: 0,
+    reviewsWritten: 0,
+    followingCount: 0,
+    followersCount: 0,
+    totalWatchTimeMinutes: 10,
+  };
+  const removed = applyLogRemovalToStats({
+    stats: floor,
+    entry: { watchedDate: '2026-01-01', reviewId: 'rev_1' },
+    runtimeMinutes: 400,
+    currentYear: 2026,
+  });
+  assert.equal(removed.filmsWatched, 0);
+  assert.equal(removed.thisYearCount, 0);
+  assert.equal(removed.totalWatchTimeMinutes, 0);
+  assert.equal(removed.reviewsWritten, 0);
+});
+
+check('a missing film runtime never corrupts the watch-time total', () => {
+  const added = applyLogToStats({
+    stats: BASE_STATS,
+    previous: null,
+    watchedDate: '2026-05-05',
+    runtimeMinutes: null,
+    writesReview: false,
+    currentYear: 2026,
+  });
+  assert.equal(added.totalWatchTimeMinutes, BASE_STATS.totalWatchTimeMinutes);
+
+  const removed = applyLogRemovalToStats({
+    stats: BASE_STATS,
+    entry: { watchedDate: '2026-05-05', reviewId: undefined },
+    runtimeMinutes: null,
+    currentYear: 2026,
+  });
+  assert.equal(removed.totalWatchTimeMinutes, BASE_STATS.totalWatchTimeMinutes);
 });
 
 console.log(`\n${checks} verification groups passed.\n`);

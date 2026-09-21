@@ -18,6 +18,7 @@ import { getDb, isDatabaseAvailable } from '@/lib/db/indexdb';
 import { applyCommunityRatingDeltaInTransaction } from '@/lib/db/metrics';
 import { getDiaryByUser } from '@/lib/db/queries';
 import { normalizeRating, toRatedOrNull } from '@/lib/utils/rating-math';
+import { applyLogRemovalToStats, applyLogToStats } from '@/lib/utils/profile-stats';
 import { toPlainTextPreview } from '@/lib/utils/markdown-sanitizer';
 
 function createId(prefix: string): string {
@@ -241,6 +242,13 @@ export function useDiaryStore({
             await db.diary.put(entry);
 
             const film = await db.films.get(draft.filmId);
+
+            // The persisted profile row is the baseline for the lifetime
+            // counters, so a stale hydrated `viewer` prop can never clobber a
+            // concurrent write. It is only a fallback for the activity event.
+            const storedProfile = await db.profiles.get(userId);
+            const profile = storedProfile ?? viewer ?? null;
+
             if (film) {
               await applyCommunityRatingDeltaInTransaction(db, {
                 filmId: draft.filmId,
@@ -253,30 +261,46 @@ export function useDiaryStore({
                   'metrics.logCount': film.metrics.logCount + 1,
                 });
               }
+            }
 
-              const profile = viewer ?? (await db.profiles.get(userId)) ?? null;
-              if (profile) {
-                const activity: ActivityEvent = {
-                  id: createId('act'),
-                  userId,
-                  user: profile,
-                  type: reviewForActivity ? 'REVIEW_FILM' : 'LOG_FILM',
-                  targetId: reviewForActivity ? reviewForActivity.id : entry.id,
-                  filmSlug: film.slug,
-                  metadata: {
-                    filmTitle: film.title,
-                    filmYear: film.releaseYear,
-                    filmPoster: film.posterUrl,
-                    rating,
-                    isLiked: draft.isLiked,
-                    ...(reviewForActivity
-                      ? { reviewSnippet: toPlainTextPreview(reviewForActivity.reviewBody, 200) }
-                      : {}),
-                  },
-                  createdAt: now,
-                };
-                await db.activity.put(activity);
-              }
+            if (storedProfile) {
+              // Profile statistics move in the same transaction as the log, so
+              // the profile page can never disagree with the diary that
+              // produced the numbers.
+              await db.profiles.update(userId, {
+                stats: applyLogToStats({
+                  stats: storedProfile.stats,
+                  previous: existing ?? null,
+                  watchedDate: draft.watchedDate,
+                  runtimeMinutes: film?.runtimeMinutes ?? null,
+                  writesReview: draft.writeReview,
+                  currentYear: new Date(now).getFullYear(),
+                }),
+                updatedAt: now,
+              });
+            }
+
+            if (film && profile) {
+              const activity: ActivityEvent = {
+                id: createId('act'),
+                userId,
+                user: profile,
+                type: reviewForActivity ? 'REVIEW_FILM' : 'LOG_FILM',
+                targetId: reviewForActivity ? reviewForActivity.id : entry.id,
+                filmSlug: film.slug,
+                metadata: {
+                  filmTitle: film.title,
+                  filmYear: film.releaseYear,
+                  filmPoster: film.posterUrl,
+                  rating,
+                  isLiked: draft.isLiked,
+                  ...(reviewForActivity
+                    ? { reviewSnippet: toPlainTextPreview(reviewForActivity.reviewBody, 200) }
+                    : {}),
+                },
+                createdAt: now,
+              };
+              await db.activity.put(activity);
             }
           },
         );
@@ -310,9 +334,11 @@ export function useDiaryStore({
         const db = getDb();
         const now = new Date().toISOString();
 
-        await db.transaction('rw', [db.diary, db.reviews, db.films], async () => {
+        await db.transaction('rw', [db.diary, db.reviews, db.films, db.profiles], async () => {
           const entry = await db.diary.get(entryId);
-          if (!entry) return;
+          // Already-removed rows are a no-op: the counters below must not be
+          // decremented twice for the same log.
+          if (!entry || entry.isDeleted) return;
 
           await db.diary.update(entryId, { isDeleted: true, updatedAt: now });
 
@@ -337,6 +363,21 @@ export function useDiaryStore({
               'metrics.logCount': film.metrics.logCount - 1,
             });
           }
+
+          // Mirror the removal onto the lifetime counters, floored at zero so a
+          // seeded baseline can never go negative.
+          const storedProfile = await db.profiles.get(userId);
+          if (storedProfile) {
+            await db.profiles.update(userId, {
+              stats: applyLogRemovalToStats({
+                stats: storedProfile.stats,
+                entry,
+                runtimeMinutes: film?.runtimeMinutes ?? null,
+                currentYear: new Date(now).getFullYear(),
+              }),
+              updatedAt: now,
+            });
+          }
         });
 
         if (isMountedRef.current) setIsSaving(false);
@@ -355,7 +396,7 @@ export function useDiaryStore({
         return { ok: false, error: message };
       }
     },
-    [refresh],
+    [refresh, userId],
   );
 
   const clearError = useCallback(() => setLastMutationError(null), []);

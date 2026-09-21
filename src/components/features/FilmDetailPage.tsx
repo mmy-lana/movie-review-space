@@ -140,18 +140,26 @@ export function FilmDetailPage() {
     async (next: StarRating | 0) => {
       if (!film) return;
       const ok = await ratings.setRating(film, next);
-      if (ok) setFlash(next === 0 ? 'Rating cleared' : `Rated ${next} of 5`);
-      else if (ratings.error) setFlash(ratings.error);
+      if (ok) {
+        setFlash(next === 0 ? 'Rating cleared' : `Rated ${next} of 5`);
+        // The write rewrote the community histogram and average; re-read them so
+        // the chart, the score and the rating count move with the tap instead of
+        // waiting for a browser refresh.
+        reload();
+      } else if (ratings.error) setFlash(ratings.error);
     },
-    [film, ratings],
+    [film, ratings, reload],
   );
 
   const handleToggleLike = useCallback(async () => {
     if (!film) return;
     const ok = await ratings.toggleLike(film);
-    if (ok) setFlash(isLiked ? 'Removed from likes' : 'Added to likes');
-    else if (ratings.error) setFlash(ratings.error);
-  }, [film, isLiked, ratings]);
+    if (ok) {
+      setFlash(isLiked ? 'Removed from likes' : 'Added to likes');
+      // `metrics.likeCount` moved with the toggle as well.
+      reload();
+    } else if (ratings.error) setFlash(ratings.error);
+  }, [film, isLiked, ratings, reload]);
 
   if (isLoading && !film) {
     return (
@@ -372,7 +380,9 @@ export function FilmDetailPage() {
             <p className="flex flex-wrap items-center gap-x-3 gap-y-1 border-t border-border-subtle pt-3 text-[12px] text-text-secondary">
               <span className="inline-flex items-center gap-1.5">
                 <Star size={12} aria-hidden="true" className="text-brand-green" />
-                You rated this {latestEntry.rating} of 5
+                {latestEntry.rating > 0
+                  ? `You rated this ${latestEntry.rating} of 5`
+                  : 'You liked this without rating it'}
               </span>
               <span>{formatWatchedContext(latestEntry.watchedDate)}</span>
               {latestEntry.isRewatch ? (

@@ -54,9 +54,7 @@ import { searchFilms } from '@/lib/db/queries';
 import { formatCommunityRating } from '@/lib/utils/rating-math';
 import { formatCount } from '@/lib/utils/date-format';
 import { MAX_ITEM_NOTE_LENGTH, useListEditor } from '@/lib/hooks/useListEditor';
-
-const WATCHLIST_STORAGE_KEY = 'cineslate:watchlist:v1';
-const WATCHLIST_CHANGE_EVENT = 'cineslate:watchlist-change';
+import { useWatchlist } from '@/lib/hooks/useWatchlist';
 
 export interface ListEditorProps {
   listId: string;
@@ -383,6 +381,7 @@ function FilmPickerModal({ isOpen, onClose, excludeIds, onPick }: FilmPickerProp
 export function ListEditor({ listId, variant = 'edit', className = '' }: ListEditorProps) {
   const readOnly = variant === 'view';
   const editor = useListEditor({ listId });
+  const { add: addToWatchlist } = useWatchlist();
 
   const [isPickerOpen, setIsPickerOpen] = useState(false);
   const [isEditingTitle, setIsEditingTitle] = useState(false);
@@ -424,23 +423,14 @@ export function ListEditor({ listId, variant = 'edit', className = '' }: ListEdi
     [editor, items],
   );
 
-  const handleAddToWatchlist = useCallback((film: Film) => {
-    try {
-      const raw = window.localStorage.getItem(WATCHLIST_STORAGE_KEY);
-      const parsed: unknown = raw ? JSON.parse(raw) : [];
-      const current = Array.isArray(parsed)
-        ? parsed.filter((value): value is string => typeof value === 'string')
-        : [];
-      if (current.includes(film.id)) return;
-      window.localStorage.setItem(
-        WATCHLIST_STORAGE_KEY,
-        JSON.stringify([...current, film.id]),
-      );
-      window.dispatchEvent(new CustomEvent(WATCHLIST_CHANGE_EVENT));
-    } catch {
-      // Storage failures are non-fatal for this convenience action.
-    }
-  }, []);
+  const handleAddToWatchlist = useCallback(
+    (film: Film) => {
+      // The watchlist hook owns the storage key, the persistence and the change
+      // broadcast; duplicating any of that here is what drifted before.
+      addToWatchlist(film.id);
+    },
+    [addToWatchlist],
+  );
 
   if (editor.isLoading) {
     return (
