@@ -1,5 +1,6 @@
 # dependencies
 /node_modules
+/.pnpm-store
 /.pnp
 .pnp.js
 .yarn/cache
@@ -35,5 +36,3 @@ pnpm-debug.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
-
-repomix-output.xml

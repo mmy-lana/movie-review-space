@@ -1,0 +1,12 @@
+{
+  "extends": "../tsconfig.json",
+  "compilerOptions": {
+    "allowImportingTsExtensions": true,
+    "composite": false,
+    "incremental": false,
+    "noEmit": true,
+    "types": ["node"]
+  },
+  "include": ["verify-phase1.ts", "ts-path-alias.mjs"],
+  "exclude": []
+}

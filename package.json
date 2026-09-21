@@ -7,7 +7,10 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "typecheck": "tsc --noEmit",
+    "verify": "pnpm run verify:logic && pnpm run verify:types",
+    "verify:logic": "node --experimental-strip-types --no-warnings --import ./scripts/ts-path-alias.mjs scripts/verify-phase1.ts",
+    "verify:types": "tsc --noEmit -p scripts/tsconfig.json"
   },
   "dependencies": {
     "next": "latest",
@@ -26,7 +29,6 @@
     "@types/react": "latest",
     "@types/react-dom": "latest",
     "tailwindcss": "latest",
-    "@tailwindcss/vite": "latest",
     "@tailwindcss/postcss": "latest"
   }
 }
