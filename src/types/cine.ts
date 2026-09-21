@@ -216,6 +216,9 @@ export type FilmSortKey =
 
 export type SortDirection = 'asc' | 'desc';
 
+/** Ordering options offered by the review thread toolbar. */
+export type ReviewSortKey = 'recent' | 'rating' | 'likes';
+
 export interface FilmFilterCriteria {
   query?: string;
   genres: string[];
