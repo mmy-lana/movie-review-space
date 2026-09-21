@@ -12,6 +12,7 @@
 import { useEffect, useState } from 'react';
 import { isDatabaseAvailable } from '@/lib/db/indexdb';
 import { initializeDatabaseSeed } from '@/lib/db/seed';
+import { announceSeedComplete } from '@/lib/hooks/useSeedSignal';
 
 type BootstrapState = 'pending' | 'ready' | 'unavailable' | 'failed';
 
@@ -38,7 +39,10 @@ export function SeedBootstrap({ announceDelayMs = 600 }: SeedBootstrapProps) {
 
     initializeDatabaseSeed()
       .then(() => {
-        if (!cancelled) setState('ready');
+        if (cancelled) return;
+        setState('ready');
+        // Tell every island that rows are now readable.
+        announceSeedComplete();
       })
       .catch((error: unknown) => {
         if (cancelled) return;

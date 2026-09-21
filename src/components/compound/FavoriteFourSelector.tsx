@@ -180,7 +180,7 @@ export function FavoriteFourSelector({
                       type="button"
                       onClick={() => handleClear(slotIndex)}
                       aria-label={`Remove ${film.title} from favourites`}
-                      className="absolute -right-1.5 -top-1.5 inline-flex h-7 w-7 items-center justify-center rounded-full border border-border-strong bg-surface-elevated text-text-muted opacity-0 transition-opacity hover:text-brand-orange focus-visible:opacity-100 group-hover/slot:opacity-100"
+                      className="absolute -right-2 -top-2 inline-flex h-11 w-11 items-center justify-center rounded-full border border-border-strong bg-surface-elevated text-text-muted opacity-0 transition-opacity hover:text-brand-orange focus-visible:opacity-100 group-hover/slot:opacity-100"
                     >
                       <X size={13} aria-hidden="true" />
                     </button>
@@ -249,7 +249,7 @@ export function FavoriteFourSelector({
                 <button
                   type="button"
                   onClick={() => setQuery('')}
-                  className="mt-2 min-h-9 rounded border border-border-strong px-3 text-[11px] uppercase tracking-wider text-text-secondary transition-colors hover:border-brand-green hover:text-text-primary"
+                  className="mt-2 min-h-11 rounded border border-border-strong px-3 text-[11px] uppercase tracking-wider text-text-secondary transition-colors hover:border-brand-green hover:text-text-primary"
                 >
                   Clear search
                 </button>

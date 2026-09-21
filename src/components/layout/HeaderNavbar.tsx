@@ -96,7 +96,7 @@ export function HeaderNavbar({ enableSearch = true }: HeaderNavbarProps) {
           {/* Brand: three-dot Letterboxd-inspired mark. */}
           <Link
             href="/"
-            className="flex shrink-0 items-center gap-2 rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-green"
+            className="flex min-h-11 shrink-0 items-center gap-2 rounded px-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-green"
             aria-label="CineSlate home"
           >
             <span aria-hidden="true" className="flex items-center gap-[3px]">
@@ -115,7 +115,7 @@ export function HeaderNavbar({ enableSearch = true }: HeaderNavbarProps) {
                 key={link.href}
                 href={link.href}
                 aria-current={isActive(link.href) ? 'page' : undefined}
-                className={`inline-flex min-h-9 items-center rounded px-2.5 text-[11px] font-semibold uppercase tracking-[0.09em] transition-colors ${
+                className={`inline-flex min-h-11 items-center rounded px-2.5 text-[11px] font-semibold uppercase tracking-[0.09em] transition-colors ${
                   isActive(link.href)
                     ? 'text-text-primary'
                     : 'text-text-muted hover:text-text-secondary'
@@ -133,7 +133,7 @@ export function HeaderNavbar({ enableSearch = true }: HeaderNavbarProps) {
               disabled={!enableSearch}
               aria-label="Search films and members"
               aria-keyshortcuts="Meta+K Control+K"
-              className="inline-flex min-h-11 items-center gap-2 rounded border border-border-subtle bg-surface-input px-2.5 text-xs text-text-muted transition-colors hover:border-border-strong hover:text-text-secondary disabled:cursor-not-allowed disabled:opacity-50 md:min-w-[190px]"
+              className="inline-flex min-h-11 min-w-11 items-center justify-center gap-2 rounded border border-border-subtle bg-surface-input px-2.5 text-xs text-text-muted transition-colors hover:border-border-strong hover:text-text-secondary disabled:cursor-not-allowed disabled:opacity-50 md:min-w-[190px] md:justify-start"
             >
               <Search size={15} aria-hidden="true" />
               <span className="hidden md:inline">Search films…</span>

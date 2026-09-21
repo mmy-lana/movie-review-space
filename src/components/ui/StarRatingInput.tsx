@@ -364,7 +364,7 @@ export function StarRatingInput({
             type="button"
             onClick={handleClear}
             disabled={disabled || (committed === 0 && preview === null)}
-            className="min-h-6 rounded px-1 text-[11px] font-medium text-text-muted underline decoration-text-dim underline-offset-2 transition-colors hover:text-text-secondary disabled:cursor-not-allowed disabled:no-underline disabled:opacity-40"
+            className="inline-flex min-h-11 min-w-11 items-center justify-center rounded px-2 text-[11px] font-medium text-text-muted underline decoration-text-dim underline-offset-2 transition-colors hover:text-text-secondary disabled:cursor-not-allowed disabled:no-underline disabled:opacity-40"
           >
             Clear rating
           </button>

@@ -1,3 +1,11 @@
-export default function ListsPage() {
-  return <main className="mx-auto w-full max-w-5xl flex-1 px-4 py-10" />;
+import type { Metadata } from 'next';
+import { ListsPage } from '@/components/features/ListsPage';
+
+export const metadata: Metadata = {
+  title: 'Lists · CineSlate',
+  description: 'Curated, rankable film collections stored in this browser.',
+};
+
+export default function Page() {
+  return <ListsPage />;
 }

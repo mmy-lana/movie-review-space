@@ -1,12 +1,12 @@
 {
   "extends": "../tsconfig.json",
   "compilerOptions": {
-    "allowImportingTsExtensions": true,
+    "noEmit": true,
     "composite": false,
     "incremental": false,
-    "noEmit": true,
+    "allowImportingTsExtensions": true,
     "types": ["node"]
   },
-  "include": ["verify-phase1.ts", "ts-path-alias.mjs"],
+  "include": ["verify-phase1.ts", "verify-storage.ts", "test-bootstrap.ts", "ts-path-alias.mjs"],
   "exclude": []
 }

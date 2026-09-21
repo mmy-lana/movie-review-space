@@ -252,7 +252,7 @@ export function QuickLogModal({
             title={selectedFilm.title}
             sizeHint="row"
             decorative
-            className="!w-10 shrink-0"
+            className="w-10! shrink-0"
           />
           <div className="min-w-0 flex-1">
             <p className="truncate text-[13px] font-semibold text-text-primary">
@@ -477,7 +477,7 @@ export function QuickLogModal({
                 }
                 aria-pressed={form.containsSpoilers}
                 disabled={isSaving}
-                className={`inline-flex min-h-9 items-center gap-2 rounded border px-2.5 text-[10px] font-semibold uppercase tracking-wider transition-colors ${
+                className={`inline-flex min-h-11 items-center gap-2 rounded border px-2.5 text-[10px] font-semibold uppercase tracking-wider transition-colors ${
                   form.containsSpoilers
                     ? 'border-brand-orange/50 bg-brand-orange/10 text-brand-orange'
                     : 'border-border-subtle bg-surface-input text-text-secondary hover:border-border-strong'

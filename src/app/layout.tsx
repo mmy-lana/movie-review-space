@@ -1,4 +1,6 @@
 import type { Metadata, Viewport } from 'next';
+import { SeedBootstrap } from '@/components/system/SeedBootstrap';
+import { ClientShell } from '@/components/layout/ClientShell';
 import './globals.css';
 
 export const metadata: Metadata = {
@@ -20,9 +22,16 @@ export default function RootLayout({
   return (
     <html lang="en" className="dark">
       <body className="min-h-screen bg-surface-bg text-text-secondary antialiased selection:bg-brand-green selection:text-surface-bg">
-        <div className="relative flex min-h-screen flex-col">
-          {children}
-        </div>
+        <a
+          href="#main-content"
+          className="sr-only focus:not-sr-only focus:absolute focus:left-3 focus:top-3 focus:z-[200] focus:inline-flex focus:min-h-11 focus:items-center focus:rounded focus:bg-brand-green focus:px-4 focus:text-[12px] focus:font-bold focus:uppercase focus:tracking-wider focus:text-surface-bg"
+        >
+          Skip to content
+        </a>
+
+        <SeedBootstrap />
+
+        <ClientShell>{children}</ClientShell>
       </body>
     </html>
   );

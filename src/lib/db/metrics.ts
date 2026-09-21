@@ -19,6 +19,58 @@ import type { StarRating } from '@/types/cine';
 import { computeCommunityRating, toDenseHistogram } from '@/lib/utils/rating-math';
 import { getDb, type CineSocialDatabase } from './indexdb';
 
+/** Spacing used by newly appended items and by full renumbering passes. */
+export const ORDER_STRIDE = 1000;
+
+/** Below this gap midpoints stop being safely distinct, forcing a renumber. */
+export const MIN_ORDER_GAP = 0.5;
+
+export interface ReorderPlan {
+  /**
+   * `single` rewrites one item's index; `renumber` rewrites the whole sequence.
+   */
+  kind: 'single' | 'renumber';
+  /** Index to write for the moved item when `kind === 'single'`. */
+  orderIndex: number;
+}
+
+/**
+ * Computes the fractional index for moving `fromIndex` to `toIndex`.
+ *
+ * Pure and total: it never throws and never produces a colliding index. When the
+ * neighbours at the destination are closer than `MIN_ORDER_GAP` — which happens
+ * after enough free dragging — it reports `renumber` so the caller rebuilds a
+ * clean `ORDER_STRIDE` sequence instead.
+ */
+export function planReorder(
+  orderIndexes: readonly number[],
+  fromIndex: number,
+  toIndex: number,
+): ReorderPlan {
+  const remaining = orderIndexes.filter((_value, index) => index !== fromIndex);
+  const before = toIndex > 0 ? remaining[toIndex - 1] : null;
+  const after = toIndex < remaining.length ? remaining[toIndex] : null;
+
+  if (before !== null && before !== undefined && after !== null && after !== undefined) {
+    const gap = after - before;
+    if (gap <= MIN_ORDER_GAP) return { kind: 'renumber', orderIndex: 0 };
+    return { kind: 'single', orderIndex: before + gap / 2 };
+  }
+
+  if (before !== null && before !== undefined) {
+    return { kind: 'single', orderIndex: before + ORDER_STRIDE };
+  }
+  if (after !== null && after !== undefined) {
+    return { kind: 'single', orderIndex: after - ORDER_STRIDE };
+  }
+  return { kind: 'single', orderIndex: ORDER_STRIDE };
+}
+
+/** Rewrites a sequence into clean `ORDER_STRIDE` multiples, preserving order. */
+export function renumberOrderIndexes(count: number): number[] {
+  return Array.from({ length: count }, (_unused, index) => (index + 1) * ORDER_STRIDE);
+}
+
 export interface ApplyCommunityRatingDeltaInput {
   filmId: string;
   /** Rating to remove from the distribution, or `null` for a fresh entry. */

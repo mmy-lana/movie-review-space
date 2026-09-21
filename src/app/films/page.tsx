@@ -1,3 +1,12 @@
-export default function FilmsPage() {
-  return <main className="mx-auto w-full max-w-5xl flex-1 px-4 py-10" />;
+import type { Metadata } from 'next';
+import { FilmsBrowsePage } from '@/components/features/FilmsBrowsePage';
+
+export const metadata: Metadata = {
+  title: 'Browse films · CineSlate',
+  description:
+    'Filter the local catalogue by genre, decade and community rating, then sort by popularity or score.',
+};
+
+export default function Page() {
+  return <FilmsBrowsePage />;
 }

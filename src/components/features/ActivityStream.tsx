@@ -150,7 +150,7 @@ export function ActivityStream({
             <article className="flex items-start gap-3 rounded border border-border-subtle bg-surface-panel p-2.5 transition-colors hover:border-border-strong sm:p-3">
               <Link
                 href={`/profile/${event.user.username}`}
-                className="shrink-0 rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-green"
+                className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-green"
                 aria-label={`View ${event.user.displayName}'s profile`}
               >
                 {/* eslint-disable-next-line @next/next/no-img-element */}

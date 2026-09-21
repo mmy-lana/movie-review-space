@@ -152,7 +152,7 @@ export function ReviewThread({
                 type="button"
                 onClick={() => handleSortChange(option.key)}
                 aria-pressed={sortBy === option.key}
-                className={`min-h-9 rounded px-2.5 text-[10px] font-semibold uppercase tracking-wider transition-colors ${
+                className={`min-h-11 rounded px-2.5 text-[10px] font-semibold uppercase tracking-wider transition-colors ${
                   sortBy === option.key
                     ? 'bg-surface-hover text-text-primary'
                     : 'text-text-muted hover:text-text-secondary'

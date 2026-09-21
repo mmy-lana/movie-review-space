@@ -119,7 +119,7 @@ function SortableRow({
           {...attributes}
           {...listeners}
           aria-label={`Reorder ${filmTitle}. Press space, then use the arrow keys to move it.`}
-          className="mt-1 inline-flex h-11 w-8 shrink-0 cursor-grab touch-none items-center justify-center rounded text-text-dim transition-colors hover:bg-surface-hover hover:text-text-secondary active:cursor-grabbing"
+          className="mt-1 inline-flex h-11 w-11 shrink-0 cursor-grab touch-none items-center justify-center rounded text-text-dim transition-colors hover:bg-surface-hover hover:text-text-secondary active:cursor-grabbing"
         >
           <GripVertical size={16} aria-hidden="true" />
         </button>
@@ -181,7 +181,7 @@ function SortableRow({
                   onNoteChange?.(item.id, noteDraft);
                   setIsEditingNote(false);
                 }}
-                className="inline-flex min-h-9 items-center gap-1.5 rounded bg-brand-green px-2.5 text-[10px] font-bold uppercase tracking-wider text-surface-bg"
+                className="inline-flex min-h-11 items-center gap-1.5 rounded bg-brand-green px-2.5 text-[10px] font-bold uppercase tracking-wider text-surface-bg"
               >
                 <Check size={12} aria-hidden="true" />
                 Save note
@@ -192,7 +192,7 @@ function SortableRow({
                   setNoteDraft(item.customNote ?? '');
                   setIsEditingNote(false);
                 }}
-                className="inline-flex min-h-9 items-center rounded border border-border-subtle px-2.5 text-[10px] font-semibold uppercase tracking-wider text-text-muted transition-colors hover:border-border-strong hover:text-text-secondary"
+                className="inline-flex min-h-11 items-center rounded border border-border-subtle px-2.5 text-[10px] font-semibold uppercase tracking-wider text-text-muted transition-colors hover:border-border-strong hover:text-text-secondary"
               >
                 Cancel
               </button>

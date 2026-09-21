@@ -274,7 +274,7 @@ export function SearchBarOverlay({
               <button
                 type="button"
                 onClick={() => setTerm('')}
-                className="mt-2 min-h-9 rounded border border-border-strong px-3 text-[11px] uppercase tracking-wider text-text-secondary transition-colors hover:border-brand-green hover:text-text-primary"
+                className="mt-2 min-h-11 rounded border border-border-strong px-3 text-[11px] uppercase tracking-wider text-text-secondary transition-colors hover:border-brand-green hover:text-text-primary"
               >
                 Clear search
               </button>

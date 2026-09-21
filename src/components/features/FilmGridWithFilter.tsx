@@ -97,7 +97,7 @@ function FacetControls({
                 type="button"
                 onClick={() => filter.toggleGenre(genre)}
                 aria-pressed={isActive}
-                className={`min-h-9 rounded-full border px-3 text-[11px] transition-colors ${
+                className={`min-h-11 rounded-full border px-3 text-[11px] transition-colors ${
                   isActive
                     ? 'border-brand-green bg-brand-green/15 text-brand-green'
                     : 'border-border-subtle bg-surface-input text-text-secondary hover:border-border-strong'
@@ -123,7 +123,7 @@ function FacetControls({
                 type="button"
                 onClick={() => filter.toggleDecade(decade)}
                 aria-pressed={isActive}
-                className={`tabular min-h-9 rounded-full border px-3 font-mono text-[11px] transition-colors ${
+                className={`tabular min-h-11 rounded-full border px-3 font-mono text-[11px] transition-colors ${
                   isActive
                     ? 'border-brand-cyan bg-brand-cyan/15 text-brand-cyan'
                     : 'border-border-subtle bg-surface-input text-text-secondary hover:border-border-strong'
@@ -149,7 +149,7 @@ function FacetControls({
                 type="button"
                 onClick={() => filter.setRatingRange({ min: minRating, max: 5 })}
                 aria-pressed={isActive}
-                className={`tabular min-h-9 rounded-full border px-3 font-mono text-[11px] transition-colors ${
+                className={`tabular min-h-11 rounded-full border px-3 font-mono text-[11px] transition-colors ${
                   isActive
                     ? 'border-brand-orange bg-brand-orange/15 text-brand-orange'
                     : 'border-border-subtle bg-surface-input text-text-secondary hover:border-border-strong'
@@ -276,7 +276,7 @@ export function FilmGridWithFilter({
               <button
                 type="button"
                 onClick={filter.resetFilters}
-                className="inline-flex min-h-9 items-center gap-1.5 rounded border border-border-subtle px-2.5 text-[10px] font-semibold uppercase tracking-wider text-text-muted transition-colors hover:border-brand-orange/60 hover:text-brand-orange"
+                className="inline-flex min-h-11 items-center gap-1.5 rounded border border-border-subtle px-2.5 text-[10px] font-semibold uppercase tracking-wider text-text-muted transition-colors hover:border-brand-orange/60 hover:text-brand-orange"
               >
                 <RotateCcw size={12} aria-hidden="true" />
                 Reset

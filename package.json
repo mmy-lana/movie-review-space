@@ -8,27 +8,30 @@
     "build": "next build",
     "start": "next start",
     "typecheck": "tsc --noEmit",
-    "verify": "pnpm run verify:logic && pnpm run verify:types",
+    "verify": "pnpm run verify:logic && pnpm run verify:storage && pnpm run verify:types",
+    "verify:render": "node scripts/verify-render.mjs",
     "verify:logic": "node --experimental-strip-types --no-warnings --import ./scripts/ts-path-alias.mjs scripts/verify-phase1.ts",
+    "verify:storage": "node --experimental-strip-types --no-warnings --import ./scripts/ts-path-alias.mjs scripts/verify-storage.ts",
     "verify:types": "tsc --noEmit -p scripts/tsconfig.json"
   },
   "dependencies": {
-    "next": "latest",
-    "react": "latest",
-    "react-dom": "latest",
-    "dexie": "latest",
-    "dexie-react-hooks": "latest",
     "@dnd-kit/core": "latest",
     "@dnd-kit/sortable": "latest",
     "@dnd-kit/utilities": "latest",
-    "lucide-react": "latest"
+    "dexie": "latest",
+    "dexie-react-hooks": "latest",
+    "lucide-react": "latest",
+    "next": "latest",
+    "react": "latest",
+    "react-dom": "latest"
   },
   "devDependencies": {
-    "typescript": "latest",
+    "@tailwindcss/postcss": "latest",
     "@types/node": "latest",
     "@types/react": "latest",
     "@types/react-dom": "latest",
+    "fake-indexeddb": "latest",
     "tailwindcss": "latest",
-    "@tailwindcss/postcss": "latest"
+    "typescript": "latest"
   }
 }

@@ -192,7 +192,7 @@ export function DropdownMenu({
                   item.onSelect();
                   close();
                 }}
-                className={`flex min-h-9 w-full items-center gap-2.5 px-3 py-1.5 text-left text-xs font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-40 ${
+                className={`flex min-h-11 w-full items-center gap-2.5 px-3 py-1.5 text-left text-xs font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-40 ${
                   item.tone === 'danger'
                     ? 'text-brand-orange hover:bg-brand-orange/10'
                     : 'text-text-secondary hover:bg-surface-hover hover:text-text-primary'

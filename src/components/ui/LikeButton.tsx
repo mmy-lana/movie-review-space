@@ -32,9 +32,12 @@ export interface LikeButtonProps {
 
 const ICON_SIZES: Record<LikeButtonSize, number> = { sm: 14, md: 18, lg: 22 };
 
-/** Minimum 44×44px pointer target for the icon variant. */
+/**
+ * Pointer targets. Every variant clears the 44×44px floor; only the glyph inside
+ * changes size, so a compact heart on a dense card is still comfortably tappable.
+ */
 const HIT_AREAS: Record<LikeButtonSize, string> = {
-  sm: 'h-8 w-8',
+  sm: 'h-11 w-11',
   md: 'h-11 w-11',
   lg: 'h-12 w-12',
 };
@@ -100,7 +103,7 @@ export function LikeButton({
         disabled={disabled}
         aria-pressed={isLiked}
         aria-label={ariaLabel}
-        className={`inline-flex min-h-9 items-center gap-1.5 rounded-full border px-3 py-1 font-medium transition-colors duration-150 disabled:cursor-not-allowed disabled:opacity-50 ${
+        className={`inline-flex min-h-11 items-center gap-1.5 rounded-full border px-3.5 py-1 font-medium transition-colors duration-150 disabled:cursor-not-allowed disabled:opacity-50 ${
           TEXT_SIZES[size]
         } ${
           isLiked

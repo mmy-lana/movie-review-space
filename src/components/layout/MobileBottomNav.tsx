@@ -56,7 +56,7 @@ export function MobileBottomNav({ enableQuickLog = true }: MobileBottomNavProps)
             <Link
               href={href}
               aria-current={isActive(href) ? 'page' : undefined}
-              className={`flex min-h-[52px] flex-col items-center justify-center gap-0.5 text-[10px] font-medium transition-colors ${
+              className={`flex min-h-14 w-full flex-col items-center justify-center gap-0.5 px-1 py-1.5 text-[10px] font-medium transition-colors ${
                 isActive(href) ? 'text-brand-green' : 'text-text-muted'
               }`}
             >
@@ -84,7 +84,7 @@ export function MobileBottomNav({ enableQuickLog = true }: MobileBottomNavProps)
             <Link
               href={href}
               aria-current={isActive(href) ? 'page' : undefined}
-              className={`flex min-h-[52px] flex-col items-center justify-center gap-0.5 text-[10px] font-medium transition-colors ${
+              className={`flex min-h-14 w-full flex-col items-center justify-center gap-0.5 px-1 py-1.5 text-[10px] font-medium transition-colors ${
                 isActive(href) ? 'text-brand-green' : 'text-text-muted'
               }`}
             >

@@ -107,8 +107,15 @@ export function FilmCard({
       </Link>
 
       {hasQuickActions ? (
+        /*
+         * A vertical pill, not a horizontal one. A poster column in the mobile
+         * grid is ~104px wide, so three 44×44px targets cannot sit side by side
+         * without shrinking below the touch floor (a flex row happily compressed
+         * them to 33px). Stacking keeps every target a true 44×44px while the
+         * visible glyph stays small enough not to bury the artwork.
+         */
         <div
-          className={`absolute right-1.5 top-1.5 z-10 flex items-center gap-0.5 rounded-full border border-border-strong bg-surface-bg/90 p-0.5 backdrop-blur-sm transition-opacity duration-150 focus-within:opacity-100 ${
+          className={`absolute right-1 top-1 z-10 flex w-11 flex-col items-stretch rounded-full border border-border-strong bg-surface-bg/90 backdrop-blur-sm transition-opacity duration-150 focus-within:opacity-100 ${
             compact
               ? 'opacity-100'
               : 'opacity-100 md:opacity-0 md:group-hover/card:opacity-100 md:group-focus-within/card:opacity-100'
@@ -123,13 +130,15 @@ export function FilmCard({
               aria-label={
                 isLiked ? `Remove like from ${film.title}` : `Like ${film.title}`
               }
-              className="inline-flex h-9 w-9 items-center justify-center rounded-full text-text-muted transition-colors hover:bg-surface-hover hover:text-text-primary"
+              className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-text-muted transition-colors hover:bg-surface-hover hover:text-text-primary"
             >
-              <Heart
-                size={14}
-                aria-hidden="true"
-                className={isLiked ? 'fill-brand-orange text-brand-orange' : ''}
-              />
+              <span className="inline-flex h-7 w-7 items-center justify-center rounded-full">
+                <Heart
+                  size={15}
+                  aria-hidden="true"
+                  className={isLiked ? 'fill-brand-orange text-brand-orange' : ''}
+                />
+              </span>
             </button>
           ) : null}
 
@@ -143,13 +152,15 @@ export function FilmCard({
                   ? `Remove ${film.title} from watchlist`
                   : `Add ${film.title} to watchlist`
               }
-              className="inline-flex h-9 w-9 items-center justify-center rounded-full text-text-muted transition-colors hover:bg-surface-hover hover:text-text-primary"
+              className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-text-muted transition-colors hover:bg-surface-hover hover:text-text-primary"
             >
-              <Bookmark
-                size={14}
-                aria-hidden="true"
-                className={isInWatchlist ? 'fill-brand-cyan text-brand-cyan' : ''}
-              />
+              <span className="inline-flex h-7 w-7 items-center justify-center rounded-full">
+                <Bookmark
+                  size={15}
+                  aria-hidden="true"
+                  className={isInWatchlist ? 'fill-brand-cyan text-brand-cyan' : ''}
+                />
+              </span>
             </button>
           ) : null}
 
@@ -158,9 +169,11 @@ export function FilmCard({
               type="button"
               onClick={() => onQuickLog(film)}
               aria-label={`Log ${film.title}`}
-              className="inline-flex h-9 w-9 items-center justify-center rounded-full text-brand-green transition-colors hover:bg-brand-green/15"
+              className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-brand-green transition-colors hover:bg-brand-green/15"
             >
-              <Plus size={15} aria-hidden="true" />
+              <span className="inline-flex h-7 w-7 items-center justify-center rounded-full">
+                <Plus size={16} aria-hidden="true" />
+              </span>
             </button>
           ) : null}
         </div>

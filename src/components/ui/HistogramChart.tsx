@@ -107,8 +107,18 @@ export function HistogramChart({
   }
 
   return (
-    <div className={`flex w-full max-w-[320px] flex-col gap-1.5 ${className}`}>
-      <div className="relative">
+    /*
+     * The chart keeps a 320px cap on roomy layouts, but a ten-bar histogram
+     * squeezed into a 390px phone leaves each bar ~28px wide — below the 44px
+     * touch floor, and the bars are the chart's only controls. Below `sm` the
+     * chart therefore keeps a 486px minimum width inside a horizontal scroller:
+     * 10 bars at 44px, plus 27px of inter-bar gaps and 16px of group padding.
+     * Every bar stays tappable and the surrounding page still never scrolls
+     * sideways, because the scroller clips its own overflow.
+     */
+    <div className={`flex w-full max-w-[320px] flex-col gap-1.5 max-sm:max-w-full ${className}`}>
+      <div className="relative max-sm:-mx-1 max-sm:overflow-x-auto max-sm:overscroll-x-contain max-sm:px-1 max-sm:pb-1">
+        <div className="max-sm:min-w-[486px]">
         {activeBar ? (
           <div
             role="status"
@@ -169,6 +179,7 @@ export function HistogramChart({
               </button>
             );
           })}
+          </div>
         </div>
       </div>
 

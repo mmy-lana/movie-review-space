@@ -84,7 +84,7 @@ export function DiaryRow({
           title={film?.title ?? 'Unknown film'}
           sizeHint="row"
           decorative
-          className="!w-10 sm:!w-[52px]"
+          className="w-10! sm:w-[52px]!"
         />
       </Link>
 
@@ -155,7 +155,7 @@ export function DiaryRow({
             <button
               type="button"
               onClick={() => onEdit(entry)}
-              className="inline-flex min-h-9 items-center rounded border border-border-subtle px-2 font-mono text-[10px] uppercase tracking-wider text-text-muted transition-colors hover:border-border-strong hover:text-text-primary"
+              className="inline-flex min-h-11 min-w-11 items-center justify-center rounded border border-border-subtle px-2.5 font-mono text-[10px] uppercase tracking-wider text-text-muted transition-colors hover:border-border-strong hover:text-text-primary"
               aria-label={`Edit log for ${film?.title ?? 'this film'}`}
             >
               Edit
@@ -165,7 +165,7 @@ export function DiaryRow({
             <button
               type="button"
               onClick={() => onDelete(entry)}
-              className="inline-flex min-h-9 items-center rounded border border-border-subtle px-2 font-mono text-[10px] uppercase tracking-wider text-text-muted transition-colors hover:border-brand-orange/60 hover:text-brand-orange"
+              className="inline-flex min-h-11 min-w-11 items-center justify-center rounded border border-border-subtle px-2.5 font-mono text-[10px] uppercase tracking-wider text-text-muted transition-colors hover:border-brand-orange/60 hover:text-brand-orange"
               aria-label={`Delete log for ${film?.title ?? 'this film'}`}
             >
               Remove

@@ -127,7 +127,7 @@ export function ReviewCard({
       <header className="flex items-start gap-3">
         <Link
           href={author ? `/profile/${author.username}` : '#'}
-          className="shrink-0 rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-green"
+          className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-green"
           aria-label={author ? `View ${author.displayName}'s profile` : 'View profile'}
         >
           {author?.avatarUrl ? (
@@ -236,7 +236,7 @@ export function ReviewCard({
 
         <Link
           href={subject ? `/films/${subject.slug}/reviews#review-${review.id}` : '#'}
-          className="inline-flex min-h-9 items-center gap-1.5 rounded-full border border-border-subtle bg-surface-input px-3 font-mono text-[11px] text-text-secondary transition-colors hover:border-border-strong hover:text-text-primary"
+          className="inline-flex min-h-11 items-center gap-1.5 rounded-full border border-border-subtle bg-surface-input px-3 font-mono text-[11px] text-text-secondary transition-colors hover:border-border-strong hover:text-text-primary"
           aria-label={`${review.commentCount} comments on this review`}
         >
           <MessageSquare size={13} aria-hidden="true" />

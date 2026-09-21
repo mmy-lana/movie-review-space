@@ -19,13 +19,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { Film, FilmList, ListItem } from '@/types/cine';
 import { getDb, isDatabaseAvailable } from '@/lib/db/indexdb';
+import {
+  ORDER_STRIDE,
+  planReorder,
+  renumberOrderIndexes,
+} from '@/lib/db/metrics';
 import { getListById, sortListItems } from '@/lib/db/queries';
-
-/** Spacing applied to newly appended items and to renumbering passes. */
-export const ORDER_STRIDE = 1000;
-
-/** Below this gap the midpoints stop being safely distinct. */
-const MIN_ORDER_GAP = 0.5;
 
 /** Longest custom note accepted on a list item. */
 export const MAX_ITEM_NOTE_LENGTH = 280;
@@ -160,52 +159,50 @@ export function useListEditor({
       if (fromIndex >= current.length || toIndex >= current.length) return;
 
       const moved = current[fromIndex];
-      const without = current.filter((_item, index) => index !== fromIndex);
-      const before = toIndex > 0 ? without[toIndex - 1] : null;
-      const after = toIndex < without.length ? without[toIndex] : null;
-
       const previousOrder = moved.orderIndex;
-      let nextIndex: number;
+      const plan = planReorder(
+        current.map((item) => item.orderIndex),
+        fromIndex,
+        toIndex,
+      );
 
-      if (before && after) {
-        const gap = after.orderIndex - before.orderIndex;
-        if (gap <= MIN_ORDER_GAP) {
-          // Neighbours collided: rebuild the whole sequence deterministically.
-          const rebuilt = current.map((item, index) =>
-            item.id === moved.id
-              ? { ...item, orderIndex: (toIndex + 1) * ORDER_STRIDE }
-              : { ...item, orderIndex: (index + 1) * ORDER_STRIDE },
+      if (plan.kind === 'renumber') {
+        // Neighbours collided: relocate the row physically, then rebuild a clean
+        // ORDER_STRIDE sequence so the numbering follows the dropped order.
+        const reordered = current.filter((_item, index) => index !== fromIndex);
+        reordered.splice(toIndex, 0, moved);
+        const freshIndexes = renumberOrderIndexes(reordered.length);
+        const finalRows = reordered.map((item, index) => ({
+          ...item,
+          orderIndex: freshIndexes[index],
+        }));
+
+        setIsSaving(true);
+        setError(null);
+        try {
+          await commitItems(() => finalRows);
+          setList((currentList) =>
+            currentList
+              ? { ...currentList, items: finalRows, itemCount: finalRows.length }
+              : currentList,
           );
-          setIsSaving(true);
-          setError(null);
-          try {
-            await commitItems(() => rebuilt);
-            setList((currentList) =>
-              currentList ? { ...currentList, items: rebuilt, itemCount: rebuilt.length } : currentList,
+          if (isMountedRef.current) setStatusMessage('List order rebuilt');
+        } catch (cause: unknown) {
+          if (isMountedRef.current) {
+            setError(
+              cause instanceof Error
+                ? `The list order could not be rebuilt: ${cause.message}`
+                : 'The list order could not be rebuilt.',
             );
-            if (isMountedRef.current) setStatusMessage('List order rebuilt');
-          } catch (cause: unknown) {
-            if (isMountedRef.current) {
-              setError(
-                cause instanceof Error
-                  ? `The list order could not be rebuilt: ${cause.message}`
-                  : 'The list order could not be rebuilt.',
-              );
-              await refresh();
-            }
-          } finally {
-            if (isMountedRef.current) setIsSaving(false);
+            await refresh();
           }
-          return;
+        } finally {
+          if (isMountedRef.current) setIsSaving(false);
         }
-        nextIndex = before.orderIndex + gap / 2;
-      } else if (before) {
-        nextIndex = before.orderIndex + ORDER_STRIDE;
-      } else if (after) {
-        nextIndex = after.orderIndex - ORDER_STRIDE;
-      } else {
-        nextIndex = ORDER_STRIDE;
+        return;
       }
+
+      const nextIndex = plan.orderIndex;
 
       // Optimistic: place the row at its new fractional index immediately.
       setList((currentList) =>

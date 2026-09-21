@@ -50,6 +50,8 @@ export interface UseDiaryStoreResult {
   entries: DiaryEntry[];
   isReady: boolean;
   isLoading: boolean;
+  /** True while a create, update or delete is in flight. */
+  isSaving: boolean;
   /** Load failure for the list itself. */
   error: string | null;
   /** Failure from the most recent mutation, shown as an inline banner. */
@@ -78,6 +80,7 @@ export function useDiaryStore({
   const [entries, setEntries] = useState<DiaryEntry[]>([]);
   const [isReady, setIsReady] = useState(false);
   const [isLoading, setIsLoading] = useState(enabled);
+  const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [lastMutationError, setLastMutationError] = useState<string | null>(null);
 
@@ -132,22 +135,23 @@ export function useDiaryStore({
   const saveEntry = useCallback(
     async (draft: DiaryDraft, entryId?: string): Promise<DiaryMutationResult> => {
       setLastMutationError(null);
+      setIsSaving(true);
 
       const rating = normalizeRating(draft.rating);
-      if (rating === 0) {
-        const message = 'Choose a rating between 0.5 and 5 stars before saving.';
+      const failValidation = (message: string): DiaryMutationResult => {
         setLastMutationError(message);
+        setIsSaving(false);
         return { ok: false, error: message };
+      };
+
+      if (rating === 0) {
+        return failValidation('Choose a rating between 0.5 and 5 stars before saving.');
       }
       if (!/^\d{4}-\d{2}-\d{2}$/.test(draft.watchedDate)) {
-        const message = 'Watched date must be a valid YYYY-MM-DD value.';
-        setLastMutationError(message);
-        return { ok: false, error: message };
+        return failValidation('Watched date must be a valid YYYY-MM-DD value.');
       }
       if (draft.writeReview && draft.reviewBody.trim().length === 0) {
-        const message = 'Add some text to the review, or switch the review toggle off.';
-        setLastMutationError(message);
-        return { ok: false, error: message };
+        return failValidation('Add some text to the review, or switch the review toggle off.');
       }
 
       try {
@@ -271,6 +275,10 @@ export function useDiaryStore({
           },
         );
 
+        // The write is committed; stop blocking dismissal before the refetch,
+        // which is a read and can take longer than the user expects to wait.
+        if (isMountedRef.current) setIsSaving(false);
+
         await refresh();
         return { ok: true, entry };
       } catch (cause: unknown) {
@@ -278,7 +286,10 @@ export function useDiaryStore({
           cause instanceof Error
             ? `Your log could not be saved: ${cause.message}`
             : 'Your log could not be saved.';
-        if (isMountedRef.current) setLastMutationError(message);
+        if (isMountedRef.current) {
+          setLastMutationError(message);
+          setIsSaving(false);
+        }
         return { ok: false, error: message };
       }
     },
@@ -288,6 +299,7 @@ export function useDiaryStore({
   const deleteEntry = useCallback(
     async (entryId: string): Promise<{ ok: boolean; error?: string }> => {
       setLastMutationError(null);
+      setIsSaving(true);
       try {
         const db = getDb();
         const now = new Date().toISOString();
@@ -316,6 +328,8 @@ export function useDiaryStore({
           }
         });
 
+        if (isMountedRef.current) setIsSaving(false);
+
         await refresh();
         return { ok: true };
       } catch (cause: unknown) {
@@ -323,7 +337,10 @@ export function useDiaryStore({
           cause instanceof Error
             ? `The log could not be removed: ${cause.message}`
             : 'The log could not be removed.';
-        if (isMountedRef.current) setLastMutationError(message);
+        if (isMountedRef.current) {
+          setLastMutationError(message);
+          setIsSaving(false);
+        }
         return { ok: false, error: message };
       }
     },
@@ -337,6 +354,7 @@ export function useDiaryStore({
       entries,
       isReady,
       isLoading,
+      isSaving,
       error,
       lastMutationError,
       refresh,
@@ -348,6 +366,7 @@ export function useDiaryStore({
       entries,
       isReady,
       isLoading,
+      isSaving,
       error,
       lastMutationError,
       refresh,
