@@ -95,7 +95,7 @@ src/
 
 ```bash
 # Clone the repository
-git clone https://github.com/your-username/cine-slate.git
+git clone https://github.com/mmy-lana/cine-slate.git
 cd cine-slate
 
 # Install dependencies
